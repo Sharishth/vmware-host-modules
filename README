@@ -1,3 +1,79 @@
+**Built and Tested for Kernal 6.9.3-76060903-generic** (k6.9)
+
+for vmware-workstation and player - 17.5.2.23775571 (17.5.2)
+
+branched from *tmp/workstation-17.5.0-k6.8*
+
+Error caused after make: dev_base_lock’ undeclared (first use in this function); did you mean ‘device_lock’?
+
+```
+/vmware-host-modules/vmnet-only/bridge.c: In function ‘VNetBridgeReceiveFromVNet’:
+/vmware-host-modules/vmnet-only/vmnetInt.h:44:39: error: ‘dev_base_lock’ undeclared (first use in this function); did you mean ‘device_lock’?
+   44 | #define dev_lock_list()    read_lock(&dev_base_lock)
+      |                                       ^~~~~~~~~~~~~
+./include/linux/rwlock.h:56:48: note: in definition of macro ‘read_lock’
+   56 | #define read_lock(lock)         _raw_read_lock(lock)
+      |                                                ^~~~
+/vmware-host-modules/vmnet-only/bridge.c:587:4: note: in expansion of macro ‘dev_lock_list’
+  587 |    dev_lock_list();
+      |    ^~~~~~~~~~~~~
+/vmware-host-modules/vmnet-only/vmnetInt.h:44:39: note: each undeclared identifier is reported only once for each function it appears in
+   44 | #define dev_lock_list()    read_lock(&dev_base_lock)
+      |                                       ^~~~~~~~~~~~~
+./include/linux/rwlock.h:56:48: note: in definition of macro ‘read_lock’
+   56 | #define read_lock(lock)         _raw_read_lock(lock)
+      |                                                ^~~~
+/vmware-host-modules/vmnet-only/bridge.c:587:4: note: in expansion of macro ‘dev_lock_list’
+  587 |    dev_lock_list();
+      |    ^~~~~~~~~~~~~
+/vmware-host-modules/vmnet-only/bridge.c: In function ‘VNetBridgeUp’:
+/vmware-host-modules/vmnet-only/vmnetInt.h:44:39: error: ‘dev_base_lock’ undeclared (first use in this function); did you mean ‘device_lock’?
+   44 | #define dev_lock_list()    read_lock(&dev_base_lock)
+      |                                       ^~~~~~~~~~~~~
+./include/linux/rwlock.h:56:48: note: in definition of macro ‘read_lock’
+   56 | #define read_lock(lock)         _raw_read_lock(lock)
+      |                                                ^~~~
+/vmware-host-modules/vmnet-only/bridge.c:902:4: note: in expansion of macro ‘dev_lock_list’
+  902 |    dev_lock_list();
+```
+
+The issue is that 'dev_base_lock' is no longer used in newer kernel versions. Instead, we need to use a different mechanism for protecting the network device list. In modern kernels, this is typically done using RCU (Read-Copy-Update) mechanisms. 
+
+changes done in these files
+
+- vmnet-only/vmnetInt.h
+- vmnet-only/bridge.c
+
+After compiling:
+
+`sudo cp ./vmmon.o /lib/modules/6.9.3-76060903-generic/misc/`
+
+`sudo cp ./vmnet.o /lib/modules/6.9.3-76060903-generic/misc/`
+
+`sudo depmod -a`
+
+`sudo modprobe vmmon ` 
+
+`sudo modprobe vmnet`
+
+verify: `lsmod | grep vm`
+
+incase of error:
+
+`sudo mv /lib/modules/6.9.3-76060903-generic/misc/vmmon.o /lib/modules/6.9.3-76060903-generic/misc/vmmon.ko`
+
+`sudo mv /lib/modules/6.9.3-76060903-generic/misc/vmnet.o /lib/modules/6.9.3-76060903-generic/misc/vmnet.ko`
+
+`sudo depmod -a`
+
+`sudo modprobe vmmon ` 
+
+`sudo modprobe vmnet`
+
+Now you can resume using vmware workstation and player.
+
+---
+
 This repository tracks patches needed to build VMware (Player and
 Workstation) host modules against recent kernels. As it focuses on recent
 kernels (older ones do not need patching), only vmmon and vmnet modules are
